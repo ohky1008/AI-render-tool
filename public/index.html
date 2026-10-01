@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Render Tool</title>
+  <style>
+    :root {
+      --bg: #f6f6f4; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66;
+      --line: #e2e2dd; --accent: #2f5bea; --accent-text: #fff; --danger: #c0392b;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141413; --panel: #1e1e1c; --text: #ececea; --muted: #9a9a94;
+        --line: #33332f; --accent: #6b8cff; --accent-text: #0b0b0b; --danger: #ff7a6b;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text);
+      font: 15px/1.5 system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+    header { padding: 20px 24px 8px; }
+    header h1 { margin: 0; font-size: 20px; }
+    header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    main { display: grid; grid-template-columns: 400px 1fr; gap: 20px; padding: 16px 24px 32px; }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 12px 16px 24px; } }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+    .field { margin-bottom: 16px; }
+    .field > label { display: block; font-weight: 600; margin-bottom: 6px; }
+    .hint { color: var(--muted); font-size: 12px; font-weight: 400; }
+    .drop { border: 1.5px dashed var(--line); border-radius: 10px; padding: 14px; text-align: center;
+      color: var(--muted); cursor: pointer; font-size: 13px; transition: border-color .15s; }
+    .drop.over { border-color: var(--accent); color: var(--text); }
+    .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+    .thumb { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; background: var(--bg); }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumb button { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border: 0;
+      border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; cursor: pointer; font-size: 12px; line-height: 20px; padding: 0; }
+    textarea, select { width: 100%; font: inherit; color: var(--text); background: var(--bg);
+      border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+    textarea { min-height: 96px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .run { width: 100%; padding: 12px; border: 0; border-radius: 10px; background: var(--accent);
+      color: var(--accent-text); font: inherit; font-weight: 600; cursor: pointer; }
+    .run:disabled { opacity: .5; cursor: progress; }
+    .error { color: var(--danger); font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+    .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+    .result { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--bg); }
+    .result img { width: 100%; display: block; }
+    .result a { display: block; padding: 8px 10px; font-size: 13px; color: var(--accent); text-decoration: none; }
+    .empty { color: var(--muted); text-align: center; padding: 60px 0; }
+    details { margin-top: 12px; font-size: 12px; color: var(--muted); }
+    details pre { white-space: pre-wrap; background: var(--bg); padding: 8px; border-radius: 6px; }
+    h2 { font-size: 16px; margin: 0 0 12px; }
+    .history { margin-top: 24px; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor;
+      border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AI Render Tool</h1>
+    <p>레퍼런스 이미지의 스타일을 분석해 비슷한 느낌으로 렌더링합니다 · OpenAI GPT Image API</p>
+  </header>
+
+  <main>
+    <form class="panel" id="form">
+      <div class="field">
+        <label>베이스 이미지 <span class="hint">(선택) 스케치·3D 캡처·사진 등 — 구도를 유지할 이미지</span></label>
+        <div class="drop" data-target="base">클릭하거나 이미지를 끌어다 놓으세요</div>
+        <div class="thumbs" id="base-thumbs"></div>
+      </div>
+
+      <div class="field">
+        <label>레퍼런스 이미지 <span class="hint">(필수) 따라 하고 싶은 스타일, 최대 15장</span></label>
+        <div class="drop" data-target="references">클릭하거나 이미지를 끌어다 놓으세요</div>
+        <div class="thumbs" id="references-thumbs"></div>
+      </div>
+
+      <div class="field">
+        <label for="prompt">추가 설명</label>
+        <textarea id="prompt" placeholder="예) 저녁 노을 조명, 따뜻한 실내등, 우드 마감재를 강조해주세요"></textarea>
+      </div>
+
+      <div class="field row">
+        <div>
+          <label for="strength">스타일 반영 강도</label>
+          <select id="strength">
+            <option value="low">약하게</option>
+            <option value="medium" selected>보통</option>
+            <option value="high">강하게</option>
+          </select>
+        </div>
+        <div>
+          <label for="size">크기</label>
+          <select id="size">
+            <option value="auto">자동</option>
+            <option value="1024x1024">정사각형 1024×1024</option>
+            <option value="1536x1024">가로 1536×1024</option>
+            <option value="1024x1536">세로 1024×1536</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field row">
+        <div>
+          <label for="quality">품질</label>
+          <select id="quality">
+            <option value="auto">자동</option>
+            <option value="low">낮음 (빠름/저렴)</option>
+            <option value="medium">보통</option>
+            <option value="high">높음</option>
+          </select>
+        </div>
+        <div>
+          <label for="n">생성 개수</label>
+          <select id="n">
+            <option>1</option><option>2</option><option>3</option><option>4</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="model">모델</label>
+        <select id="model">
+          <option value="gpt-image-2">gpt-image-2</option>
+          <option value="gpt-image-1.5">gpt-image-1.5</option>
+          <option value="gpt-image-1">gpt-image-1</option>
+          <option value="gpt-image-1-mini">gpt-image-1-mini (저렴)</option>
+        </select>
+      </div>
+
+      <button class="run" id="run" type="submit">렌더링</button>
+      <div class="error" id="error"></div>
+      <input type="file" id="file-base" accept="image/png,image/jpeg,image/webp" hidden />
+      <input type="file" id="file-references" accept="image/png,image/jpeg,image/webp" multiple hidden />
+    </form>
+
+    <section class="panel">
+      <h2>결과</h2>
+      <div class="results" id="results"><div class="empty">아직 결과가 없습니다</div></div>
+      <details id="prompt-details" hidden><summary>실제로 보낸 프롬프트</summary><pre id="sent-prompt"></pre></details>
+
+      <div class="history">
+        <h2>최근 렌더링</h2>
+        <div class="results" id="history"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = { base: [], references: [] };
+    const MAX_REFS = 15;
+    const $ = (id) => document.getElementById(id);
+
+    function render(target) {
+      const box = $(`${target}-thumbs`);
+      box.innerHTML = "";
+      state[target].forEach((file, i) => {
+        const div = document.createElement("div");
+        div.className = "thumb";
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(file);
+        img.onload = () => URL.revokeObjectURL(img.src);
+        const btn = document.createElement("button");
+        btn.type = "button"; btn.textContent = "×"; btn.title = "삭제";
+        btn.onclick = () => { state[target].splice(i, 1); render(target); };
+        div.append(img, btn);
+        box.append(div);
+      });
+    }
+
+    function addFiles(target, files) {
+      const imgs = [...files].filter((f) => /^image\/(png|jpeg|webp)$/.test(f.type));
+      if (target === "base") state.base = imgs.slice(0, 1);
+      else state.references = [...state.references, ...imgs].slice(0, MAX_REFS);
+      render(target);
+    }
+
+    document.querySelectorAll(".drop").forEach((drop) => {
+      const target = drop.dataset.target;
+      const input = $(`file-${target}`);
+      drop.onclick = () => input.click();
+      input.onchange = () => { addFiles(target, input.files); input.value = ""; };
+      drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
+      drop.ondragleave = () => drop.classList.remove("over");
+      drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); addFiles(target, e.dataTransfer.files); };
+    });
+
+    function showImages(container, urls) {
+      container.innerHTML = "";
+      if (!urls.length) { container.innerHTML = '<div class="empty">아직 결과가 없습니다</div>'; return; }
+      for (const url of urls) {
+        const div = document.createElement("div");
+        div.className = "result";
+        div.innerHTML = `<img src="${url}" alt="렌더링 결과" loading="lazy"><a href="${url}" download>다운로드</a>`;
+        container.append(div);
+      }
+    }
+
+    async function loadHistory() {
+      const res = await fetch("/api/history");
+      const { images } = await res.json();
+      showImages($("history"), images);
+    }
+
+    $("form").onsubmit = async (e) => {
+      e.preventDefault();
+      $("error").textContent = "";
+      if (!state.references.length) { $("error").textContent = "레퍼런스 이미지를 1장 이상 올려주세요."; return; }
+
+      const fd = new FormData();
+      if (state.base[0]) fd.append("base", state.base[0]);
+      state.references.forEach((f) => fd.append("references", f));
+      for (const key of ["prompt", "strength", "size", "quality", "n", "model"]) fd.append(key, $(key).value);
+
+      const btn = $("run");
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>렌더링 중… (최대 1~2분)';
+      try {
+        const res = await fetch("/api/render", { method: "POST", body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "요청 실패");
+        showImages($("results"), data.images);
+        $("sent-prompt").textContent = data.prompt;
+        $("prompt-details").hidden = false;
+        loadHistory();
+      } catch (err) {
+        $("error").textContent = err.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "렌더링";
+      }
+    };
+
+    fetch("/api/config").then((r) => r.json()).then((cfg) => {
+      if (![...$("model").options].some((o) => o.value === cfg.defaultModel)) {
+        $("model").add(new Option(cfg.defaultModel, cfg.defaultModel), 0);
+      }
+      $("model").value = cfg.defaultModel;
+      if (!cfg.hasApiKey) $("error").textContent = "서버에 OPENAI_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.";
+    });
+    loadHistory();
+  </script>
+</body>
+</html>

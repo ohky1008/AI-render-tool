@@ -1,0 +1,30 @@
+{
+  "name": "ai-render-tool",
+  "version": "1.0.0",
+  "description": "레퍼런스 이미지 기반 AI 렌더링 툴 (OpenAI GPT Image API)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ohky1008/AI-render-tool.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ohky1008/AI-render-tool/issues"
+  },
+  "homepage": "https://github.com/ohky1008/AI-render-tool#readme",
+  "dependencies": {
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "multer": "^2.4.0",
+    "openai": "^7.25.0"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  }
+}
