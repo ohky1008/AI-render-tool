@@ -19,7 +19,8 @@ let connection = null; // Promise<{ client, tools }>
 
 function mcpCommand() {
   const raw = process.env.RHINO_MCP_COMMAND || "uvx rhinomcp@latest";
-  const [command, ...args] = raw.trim().split(/\s+/);
+  // 공백이 있는 경로는 "..."로 감쌀 수 있다 (예: "C:\\Users\\My Name\\.local\\bin\\uvx.exe" rhinomcp@latest)
+  const [command, ...args] = (raw.match(/"[^"]*"|\S+/g) ?? []).map((t) => t.replace(/^"(.*)"$/, "$1"));
   return { command, args };
 }
 

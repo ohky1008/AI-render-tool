@@ -43,9 +43,17 @@ EXR은 브라우저/서버에서 읽지 않으므로 V-Ray Frame Buffer에서 **
 
 [rhinomcp](https://github.com/jingcheng-chen/rhinomcp)를 사용합니다.
 
-1. Rhino 7/8에 rhinomcp 플러그인을 설치하고 Rhino 명령창에서 `mcpstart` 실행 (127.0.0.1:1999)
-2. 이 툴을 실행하는 PC에 [uv](https://docs.astral.sh/uv/) 설치 (`uvx rhinomcp@latest`로 MCP 서버를 띄웁니다)
-3. 웹 UI에서 **Rhino에서 불러오기** → 씬 정보, **뷰포트 캡처 → 베이스** → 현재 뷰를 베이스로 사용
+**Rhino 8**(Windows/macOS)이 필요합니다.
+
+1. **uv 설치** — `uvx rhinomcp@latest`로 MCP 서버를 띄우는 데 씁니다 (필요한 Python은 uv가 알아서 받습니다).
+   - Windows (PowerShell): `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"`
+   - macOS: `brew install uv`
+   - 설치 후 터미널을 새로 열고 `uvx --version`으로 확인
+2. **Rhino 플러그인 설치** — Rhino에서 `Tools → Package Manager` → `rhinomcp` 검색 → Install → Rhino 재시작
+3. **브리지 시작** — Rhino 명령창에 `mcpstart` (127.0.0.1:1999에서 대기, 끄려면 `mcpstop`). Rhino를 켤 때마다 다시 실행해야 합니다.
+4. 이 툴을 `npm start`로 띄운 뒤 웹 UI에서 **Rhino에서 불러오기** → 씬 정보, **뷰포트 캡처 → 베이스** → 현재 뷰를 베이스로 사용
+
+`uvx`를 찾지 못한다는 오류가 나면 `.env`의 `RHINO_MCP_COMMAND`에 전체 경로를 적으세요 (예: `C:\Users\<사용자>\.local\bin\uvx.exe rhinomcp@latest`, 경로에 공백이 있으면 경로를 큰따옴표로 감싸기).
 
 서버는 MCP 클라이언트로 `execute_rhinoscript_python_code`에 `rhino/scene_export.py`를 실행해 씬 정보를 받고, `capture_viewport`로 뷰포트 이미지를 받습니다.
 
