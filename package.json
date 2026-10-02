@@ -1,7 +1,7 @@
 {
   "name": "ai-render-tool",
   "version": "1.0.0",
-  "description": "레퍼런스 이미지 기반 AI 렌더링 툴 (OpenAI GPT Image API)",
+  "description": "Rhino MCP + V-Ray Render Elements 기반 실사 AI 렌더링 툴 (OpenAI GPT Image API)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -18,13 +18,15 @@
   },
   "homepage": "https://github.com/ohky1008/AI-render-tool#readme",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "dotenv": "^18.0.5",
     "express": "^5.2.1",
     "multer": "^2.4.0",
-    "openai": "^7.25.0"
+    "openai": "^7.25.0",
+    "sharp": "^0.35.5"
   },
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.9"
   }
 }

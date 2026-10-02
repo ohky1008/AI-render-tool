@@ -7,12 +7,12 @@
   <style>
     :root {
       --bg: #f6f6f4; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66;
-      --line: #e2e2dd; --accent: #2f5bea; --accent-text: #fff; --danger: #c0392b;
+      --line: #e2e2dd; --accent: #2f5bea; --accent-text: #fff; --danger: #c0392b; --ok: #1e8a4c;
     }
     @media (prefers-color-scheme: dark) {
       :root {
         --bg: #141413; --panel: #1e1e1c; --text: #ececea; --muted: #9a9a94;
-        --line: #33332f; --accent: #6b8cff; --accent-text: #0b0b0b; --danger: #ff7a6b;
+        --line: #33332f; --accent: #6b8cff; --accent-text: #0b0b0b; --danger: #ff7a6b; --ok: #5fd08f;
       }
     }
     * { box-sizing: border-box; }
@@ -21,32 +21,62 @@
     header { padding: 20px 24px 8px; }
     header h1 { margin: 0; font-size: 20px; }
     header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
-    main { display: grid; grid-template-columns: 400px 1fr; gap: 20px; padding: 16px 24px 32px; }
-    @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 12px 16px 24px; } }
+    main { display: grid; grid-template-columns: 440px 1fr; gap: 20px; padding: 16px 24px 32px; align-items: start; }
+    @media (max-width: 960px) { main { grid-template-columns: 1fr; padding: 12px 16px 24px; } }
     .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
-    .field { margin-bottom: 16px; }
-    .field > label { display: block; font-weight: 600; margin-bottom: 6px; }
+    .step { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
+    .step:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+    .step > h3 { margin: 0 0 8px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+    .step > h3 .n { color: var(--accent); }
     .hint { color: var(--muted); font-size: 12px; font-weight: 400; }
-    .drop { border: 1.5px dashed var(--line); border-radius: 10px; padding: 14px; text-align: center;
+    .field { margin-bottom: 12px; }
+    .field > label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+    .drop { border: 1.5px dashed var(--line); border-radius: 10px; padding: 12px; text-align: center;
       color: var(--muted); cursor: pointer; font-size: 13px; transition: border-color .15s; }
     .drop.over { border-color: var(--accent); color: var(--text); }
     .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
     .thumb { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; background: var(--bg); }
     .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .thumb button { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border: 0;
+    .x { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border: 0;
       border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; cursor: pointer; font-size: 12px; line-height: 20px; padding: 0; }
-    textarea, select { width: 100%; font: inherit; color: var(--text); background: var(--bg);
-      border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
-    textarea { min-height: 96px; resize: vertical; }
+    .base-preview { margin-top: 8px; position: relative; }
+    .base-preview img { width: 100%; border-radius: 8px; display: block; }
+    textarea, select, input[type=text] { width: 100%; font: inherit; font-size: 14px; color: var(--text); background: var(--bg);
+      border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; }
+    textarea { min-height: 80px; resize: vertical; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn { padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg);
+      color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+    .btn:disabled { opacity: .5; cursor: progress; }
     .run { width: 100%; padding: 12px; border: 0; border-radius: 10px; background: var(--accent);
-      color: var(--accent-text); font: inherit; font-weight: 600; cursor: pointer; }
+      color: var(--accent-text); font: inherit; font-weight: 600; cursor: pointer; margin-top: 16px; }
     .run:disabled { opacity: .5; cursor: progress; }
-    .error { color: var(--danger); font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
-    .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+    .error { color: var(--danger); font-size: 13px; margin-top: 8px; white-space: pre-wrap; }
+    .ok { color: var(--ok); }
+    .scene { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .chip { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-size: 12px; color: var(--text); }
+    .el-list { display: grid; gap: 6px; margin-top: 8px; }
+    .el { display: grid; grid-template-columns: 44px 1fr 130px auto 22px; gap: 8px; align-items: center; font-size: 12px; }
+    .el img { width: 44px; height: 44px; object-fit: cover; border-radius: 4px; background: var(--bg); }
+    .el .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .el select { padding: 4px 6px; font-size: 12px; }
+    .el .x { position: static; }
+    .pal { display: grid; gap: 6px; margin-top: 8px; }
+    .pal-row { display: grid; grid-template-columns: 22px 46px 1fr auto; gap: 8px; align-items: center; font-size: 12px; }
+    .sw { width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--line); }
+    .pal-row input[type=text] { padding: 4px 8px; font-size: 12px; }
+    .check { display: flex; gap: 6px; align-items: center; font-size: 13px; white-space: nowrap; }
+    .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
     .result { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--bg); }
-    .result img { width: 100%; display: block; }
-    .result a { display: block; padding: 8px 10px; font-size: 13px; color: var(--accent); text-decoration: none; }
+    .result a { display: inline-block; padding: 8px 10px; font-size: 13px; color: var(--accent); text-decoration: none; }
+    .compare { position: relative; line-height: 0; }
+    .compare img { width: 100%; display: block; }
+    .compare .before { position: absolute; inset: 0; height: 100%; object-fit: fill; }
+    .compare input { position: absolute; left: 0; right: 0; bottom: 8px; width: calc(100% - 16px); margin: 0 8px; }
+    .compare .tag { position: absolute; top: 6px; left: 6px; font: 11px/1 system-ui; background: rgba(0,0,0,.55); color: #fff; padding: 4px 6px; border-radius: 4px; }
+    .history .result img { width: 100%; display: block; }
     .empty { color: var(--muted); text-align: center; padding: 60px 0; }
     details { margin-top: 12px; font-size: 12px; color: var(--muted); }
     details pre { white-space: pre-wrap; background: var(--bg); padding: 8px; border-radius: 6px; }
@@ -60,84 +90,155 @@
 <body>
   <header>
     <h1>AI Render Tool</h1>
-    <p>레퍼런스 이미지의 스타일을 분석해 비슷한 느낌으로 렌더링합니다 · OpenAI GPT Image API</p>
+    <p>Rhino 모델 데이터 + V-Ray 렌더 + Render Elements → 실사 사진 수준의 이미지 · OpenAI GPT Image API</p>
   </header>
 
   <main>
     <form class="panel" id="form">
-      <div class="field">
-        <label>베이스 이미지 <span class="hint">(선택) 스케치·3D 캡처·사진 등 — 구도를 유지할 이미지</span></label>
-        <div class="drop" data-target="base">클릭하거나 이미지를 끌어다 놓으세요</div>
-        <div class="thumbs" id="base-thumbs"></div>
-      </div>
-
-      <div class="field">
-        <label>레퍼런스 이미지 <span class="hint">(필수) 따라 하고 싶은 스타일, 최대 15장</span></label>
-        <div class="drop" data-target="references">클릭하거나 이미지를 끌어다 놓으세요</div>
-        <div class="thumbs" id="references-thumbs"></div>
-      </div>
-
-      <div class="field">
-        <label for="prompt">추가 설명</label>
-        <textarea id="prompt" placeholder="예) 저녁 노을 조명, 따뜻한 실내등, 우드 마감재를 강조해주세요"></textarea>
-      </div>
-
-      <div class="field row">
-        <div>
-          <label for="strength">스타일 반영 강도</label>
-          <select id="strength">
-            <option value="low">약하게</option>
-            <option value="medium" selected>보통</option>
-            <option value="high">강하게</option>
-          </select>
+      <!-- 1. Rhino -->
+      <section class="step">
+        <h3><span class="n">1</span> Rhino 모델 데이터 <span class="hint">(선택) 카메라·재질·레이어 정보</span></h3>
+        <div class="btns">
+          <button class="btn" type="button" id="rhino-scene">Rhino에서 불러오기 (MCP)</button>
+          <button class="btn" type="button" id="rhino-capture">뷰포트 캡처 → 베이스</button>
+          <button class="btn" type="button" id="scene-file-btn">JSON 불러오기</button>
         </div>
-        <div>
-          <label for="size">크기</label>
-          <select id="size">
-            <option value="auto">자동</option>
-            <option value="1024x1024">정사각형 1024×1024</option>
-            <option value="1536x1024">가로 1536×1024</option>
-            <option value="1024x1536">세로 1024×1536</option>
-          </select>
-        </div>
-      </div>
+        <div class="scene" id="scene-summary">불러온 모델 데이터가 없습니다.</div>
+        <input type="file" id="scene-file" accept="application/json,.json" hidden />
+      </section>
 
-      <div class="field row">
-        <div>
-          <label for="quality">품질</label>
-          <select id="quality">
-            <option value="auto">자동</option>
-            <option value="low">낮음 (빠름/저렴)</option>
-            <option value="medium">보통</option>
-            <option value="high">높음</option>
-          </select>
-        </div>
-        <div>
-          <label for="n">생성 개수</label>
-          <select id="n">
-            <option>1</option><option>2</option><option>3</option><option>4</option>
-          </select>
-        </div>
-      </div>
+      <!-- 2. Base -->
+      <section class="step">
+        <h3><span class="n">2</span> 베이스 렌더 <span class="hint">(필수) V-Ray RGB / Beauty</span></h3>
+        <div class="drop" data-target="base">클릭하거나 이미지를 끌어다 놓으세요 · png, jpg, tiff</div>
+        <div class="base-preview" id="base-preview"></div>
+      </section>
 
-      <div class="field">
-        <label for="model">모델</label>
-        <select id="model">
-          <option value="gpt-image-2">gpt-image-2</option>
-          <option value="gpt-image-1.5">gpt-image-1.5</option>
-          <option value="gpt-image-1">gpt-image-1</option>
-          <option value="gpt-image-1-mini">gpt-image-1-mini (저렴)</option>
-        </select>
-      </div>
+      <!-- 3. Elements -->
+      <section class="step">
+        <h3><span class="n">3</span> Render Elements <span class="hint">ZDepth, Normals, MtlID, Reflection, AO …</span></h3>
+        <div class="drop" data-target="elements">여러 장을 한번에 끌어다 놓으세요 · 파일명으로 종류 자동 인식</div>
+        <div class="el-list" id="el-list"></div>
+        <label class="check" style="margin-top:8px"><input type="checkbox" id="invert-depth" /> Z-Depth 반전 (가까운 곳이 검은색인 경우)</label>
+      </section>
 
-      <button class="run" id="run" type="submit">렌더링</button>
+      <!-- 4. Material map -->
+      <section class="step" id="pal-step" hidden>
+        <h3><span class="n">4</span> 재질 매핑 <span class="hint">ID 색마다 실제 재질을 적어주세요</span></h3>
+        <div class="field">
+          <select id="id-source"></select>
+        </div>
+        <div class="pal" id="pal"></div>
+        <datalist id="rhino-materials"></datalist>
+        <label class="check" style="margin-top:8px"><input type="checkbox" id="lock-outside" checked /> "보정" 체크한 영역만 수정하고 나머지는 원본 픽셀 유지</label>
+      </section>
+
+      <!-- 5. Look -->
+      <section class="step">
+        <h3><span class="n">5</span> 실사 설정</h3>
+        <div class="field row">
+          <div>
+            <label for="timeOfDay">시간대</label>
+            <select id="timeOfDay">
+              <option value="keep">베이스 유지</option>
+              <option value="morning">아침</option>
+              <option value="noon">한낮</option>
+              <option value="golden">골든아워</option>
+              <option value="blue">블루아워</option>
+              <option value="night">야간</option>
+              <option value="overcast">흐린 날</option>
+            </select>
+          </div>
+          <div>
+            <label for="weather">날씨</label>
+            <select id="weather">
+              <option value="keep">베이스 유지</option>
+              <option value="clear">맑음</option>
+              <option value="hazy">약간의 대기 연무</option>
+              <option value="rain">비 온 뒤</option>
+              <option value="snow">눈</option>
+            </select>
+          </div>
+        </div>
+        <div class="field row">
+          <div>
+            <label for="look">사진 스타일</label>
+            <select id="look">
+              <option value="architectural">건축 사진</option>
+              <option value="editorial">인테리어/매거진</option>
+              <option value="documentary">다큐멘터리</option>
+              <option value="cinematic">시네마틱</option>
+            </select>
+          </div>
+          <div>
+            <label for="fidelity">형태 보존</label>
+            <select id="fidelity">
+              <option value="strict">엄격 (형태 고정)</option>
+              <option value="balanced">보통</option>
+              <option value="creative">자유롭게</option>
+            </select>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" id="entourage" /> 사람·생활감 요소 추가</label>
+        <div class="field" style="margin-top:10px">
+          <label for="prompt">추가 설명</label>
+          <textarea id="prompt" placeholder="예) 노출 콘크리트는 송판 무늬, 바닥은 젖은 화강석, 실내등은 3000K"></textarea>
+        </div>
+        <div class="field">
+          <label>스타일 레퍼런스 <span class="hint">(선택) 원하는 톤의 실제 사진</span></label>
+          <div class="drop" data-target="references">클릭하거나 이미지를 끌어다 놓으세요</div>
+          <div class="thumbs" id="references-thumbs"></div>
+        </div>
+      </section>
+
+      <!-- 6. Output -->
+      <section class="step">
+        <h3><span class="n">6</span> 출력</h3>
+        <div class="field row">
+          <div>
+            <label for="quality">품질</label>
+            <select id="quality">
+              <option value="high" selected>높음</option>
+              <option value="medium">보통</option>
+              <option value="low">낮음 (테스트용)</option>
+            </select>
+          </div>
+          <div>
+            <label for="n">생성 개수</label>
+            <select id="n"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+          </div>
+        </div>
+        <div class="field row">
+          <div>
+            <label for="size">생성 비율</label>
+            <select id="size">
+              <option value="match">베이스에 맞춤</option>
+              <option value="1536x1024">가로 3:2</option>
+              <option value="1024x1536">세로 2:3</option>
+              <option value="1024x1024">정사각형</option>
+            </select>
+          </div>
+          <div>
+            <label for="model">모델</label>
+            <select id="model">
+              <option value="gpt-image-2">gpt-image-2</option>
+              <option value="gpt-image-1.5">gpt-image-1.5</option>
+              <option value="gpt-image-1">gpt-image-1</option>
+            </select>
+          </div>
+        </div>
+        <div class="hint" id="count-hint"></div>
+      </section>
+
+      <button class="run" id="run" type="submit">실사 렌더링</button>
       <div class="error" id="error"></div>
-      <input type="file" id="file-base" accept="image/png,image/jpeg,image/webp" hidden />
-      <input type="file" id="file-references" accept="image/png,image/jpeg,image/webp" multiple hidden />
+      <input type="file" id="file-base" accept="image/png,image/jpeg,image/webp,image/tiff,.tif,.tiff" hidden />
+      <input type="file" id="file-elements" accept="image/png,image/jpeg,image/webp,image/tiff,.tif,.tiff" multiple hidden />
+      <input type="file" id="file-references" accept="image/png,image/jpeg,image/webp,image/tiff,.tif,.tiff" multiple hidden />
     </form>
 
     <section class="panel">
-      <h2>결과</h2>
+      <h2>결과 <span class="hint">슬라이더로 베이스 렌더와 비교</span></h2>
       <div class="results" id="results"><div class="empty">아직 결과가 없습니다</div></div>
       <details id="prompt-details" hidden><summary>실제로 보낸 프롬프트</summary><pre id="sent-prompt"></pre></details>
 
@@ -148,98 +249,305 @@
     </section>
   </main>
 
-  <script>
-    const state = { base: [], references: [] };
-    const MAX_REFS = 15;
-    const $ = (id) => document.getElementById(id);
+  <script type="module">
+    import { ELEMENT_TYPES, detectElementType } from "/shared/element-types.js";
 
-    function render(target) {
-      const box = $(`${target}-thumbs`);
+    const MAX_INPUT_IMAGES = 16;
+    const IMAGE_RE = /^image\/(png|jpeg|webp|tiff)$|\.tiff?$/i;
+    const state = {
+      base: null, baseUrl: null, // File + 미리보기 URL (TIFF는 미리보기 불가)
+      elements: [],              // { file, type, ai, url }
+      references: [],
+      scene: null,
+      idEl: null,                // 재질 매핑에 쓰는 ID 맵 element
+      palette: [],               // { color, coverage, label, edit }
+    };
+    const $ = (id) => document.getElementById(id);
+    const isImage = (f) => IMAGE_RE.test(f.type) || IMAGE_RE.test(f.name);
+    const previewUrl = (f) => (/tiff?$/i.test(f.type) || /\.tiff?$/i.test(f.name) ? null : URL.createObjectURL(f));
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+    async function api(url, opts) {
+      const res = await fetch(url, opts);
+      const isJson = res.headers.get("content-type")?.includes("json");
+      const data = isJson ? await res.json() : await res.blob();
+      if (!res.ok) throw new Error((isJson && data.error) || "요청 실패");
+      return data;
+    }
+
+    async function busy(btn, label, fn) {
+      const old = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner"></span>${label}`;
+      $("error").textContent = "";
+      try { await fn(); } catch (err) { $("error").textContent = err.message; }
+      finally { btn.disabled = false; btn.innerHTML = old; }
+    }
+
+    // ── 1. Rhino ──────────────────────────────────────
+    function setScene(scene) {
+      state.scene = scene;
+      const box = $("scene-summary");
+      if (!scene) { box.textContent = "불러온 모델 데이터가 없습니다."; return; }
+      const cam = scene.camera;
+      const mats = (scene.materials ?? []).filter((m) => m.name !== "(default)");
+      box.innerHTML = `
+        <div class="ok">✓ ${esc(scene.file || "Rhino 모델")} · ${esc(scene.units ?? "")}</div>
+        ${cam ? `<div>카메라: ${esc(cam.viewName)} · ${cam.projection === "parallel" ? "평행 투영" : `${Math.round(cam.lensLength)}mm`}${cam.pitchDeg != null ? ` · 기울기 ${cam.pitchDeg}°` : ""}</div>` : ""}
+        ${scene.sun?.enabled ? `<div>태양: 고도 ${scene.sun.altitude}° / 방위 ${scene.sun.azimuth}°</div>` : ""}
+        <div>재질 ${mats.length}개 · 레이어 ${(scene.layers ?? []).length}개</div>
+        <div class="chips">${mats.slice(0, 20).map((m) => `<span class="chip">${esc(m.name)}</span>`).join("")}</div>`;
+      $("rhino-materials").innerHTML = mats.map((m) => `<option value="${esc(m.name)}">`).join("");
+    }
+
+    $("rhino-scene").onclick = (e) => busy(e.currentTarget, "불러오는 중…", async () => {
+      const { scene } = await api("/api/rhino/scene", { method: "POST" });
+      setScene(scene);
+    });
+    $("rhino-capture").onclick = (e) => busy(e.currentTarget, "캡처 중…", async () => {
+      const blob = await api("/api/rhino/capture", { method: "POST" });
+      setBase(new File([blob], "rhino-viewport.png", { type: blob.type || "image/png" }));
+    });
+    $("scene-file-btn").onclick = () => $("scene-file").click();
+    $("scene-file").onchange = async (e) => {
+      const file = e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      try { setScene(JSON.parse(await file.text())); }
+      catch { $("error").textContent = "씬 JSON을 읽지 못했습니다. rhino/scene_export.py로 만든 파일인지 확인하세요."; }
+    };
+
+    // ── 2. 베이스 ─────────────────────────────────────
+    function setBase(file) {
+      if (state.baseUrl) URL.revokeObjectURL(state.baseUrl);
+      state.base = file;
+      state.baseUrl = file ? previewUrl(file) : null;
+      const box = $("base-preview");
       box.innerHTML = "";
-      state[target].forEach((file, i) => {
-        const div = document.createElement("div");
-        div.className = "thumb";
+      if (!file) return updateCount();
+      if (state.baseUrl) {
         const img = document.createElement("img");
-        img.src = URL.createObjectURL(file);
-        img.onload = () => URL.revokeObjectURL(img.src);
-        const btn = document.createElement("button");
-        btn.type = "button"; btn.textContent = "×"; btn.title = "삭제";
-        btn.onclick = () => { state[target].splice(i, 1); render(target); };
-        div.append(img, btn);
-        box.append(div);
+        img.src = state.baseUrl;
+        box.append(img);
+      } else {
+        box.innerHTML = `<div class="hint">${esc(file.name)} (TIFF 미리보기 없음)</div>`;
+      }
+      const x = document.createElement("button");
+      x.type = "button"; x.className = "x"; x.textContent = "×"; x.title = "삭제";
+      x.onclick = () => setBase(null);
+      box.append(x);
+      updateCount();
+    }
+
+    // ── 3. Render Elements ────────────────────────────
+    const typeOptions = Object.entries(ELEMENT_TYPES).map(([k, d]) => `<option value="${k}">${d.label}</option>`).join("");
+
+    function renderElements() {
+      const list = $("el-list");
+      list.innerHTML = "";
+      state.elements.forEach((el, i) => {
+        const row = document.createElement("div");
+        row.className = "el";
+        row.innerHTML = `
+          ${el.url ? `<img src="${el.url}" alt="">` : `<img alt="">`}
+          <div class="name" title="${esc(el.file.name)}">${esc(el.file.name)}</div>
+          <select>${typeOptions}</select>
+          <label class="check" title="AI에게 가이드 이미지로 함께 보냅니다"><input type="checkbox" ${el.ai ? "checked" : ""}> AI 전달</label>
+          <button type="button" class="x" title="삭제">×</button>`;
+        const sel = row.querySelector("select");
+        sel.value = el.type;
+        sel.onchange = () => {
+          el.type = sel.value;
+          el.ai = ELEMENT_TYPES[el.type].aiDefault;
+          renderElements();
+          refreshIdSources();
+        };
+        row.querySelector("input").onchange = (e) => { el.ai = e.target.checked; updateCount(); };
+        row.querySelector(".x").onclick = () => {
+          if (el.url) URL.revokeObjectURL(el.url);
+          state.elements.splice(i, 1);
+          renderElements();
+          refreshIdSources();
+        };
+        list.append(row);
+      });
+      updateCount();
+    }
+
+    function addElements(files) {
+      for (const file of files) {
+        const type = detectElementType(file.name);
+        state.elements.push({ file, type, ai: ELEMENT_TYPES[type].aiDefault, url: previewUrl(file) });
+      }
+      renderElements();
+      refreshIdSources();
+    }
+
+    // ── 4. 재질 매핑 ──────────────────────────────────
+    function refreshIdSources() {
+      const ids = state.elements.map((el, i) => ({ el, i })).filter(({ el }) => ELEMENT_TYPES[el.type].idMap);
+      $("pal-step").hidden = ids.length === 0;
+      const sel = $("id-source");
+      sel.innerHTML = ids.map(({ el, i }) => `<option value="${i}">${esc(ELEMENT_TYPES[el.type].label)} — ${esc(el.file.name)}</option>`).join("");
+      if (ids.some(({ el }) => el === state.idEl)) {
+        sel.value = String(state.elements.indexOf(state.idEl));
+      } else {
+        loadPalette(ids[0]?.el ?? null);
+      }
+    }
+
+    async function loadPalette(el) {
+      state.idEl = el;
+      state.palette = [];
+      renderPalette();
+      if (!el) return;
+      const fd = new FormData();
+      fd.append("image", el.file);
+      try {
+        const { palette } = await api("/api/analyze-ids", { method: "POST", body: fd });
+        if (state.idEl !== el) return;
+        state.palette = palette.map((p) => ({ ...p, label: "", edit: false }));
+        renderPalette();
+      } catch (err) {
+        $("error").textContent = err.message;
+      }
+    }
+    $("id-source").onchange = (e) => loadPalette(state.elements[+e.target.value]);
+
+    function renderPalette() {
+      const box = $("pal");
+      box.innerHTML = state.palette.length ? "" : '<div class="hint">ID 맵 색을 분석하는 중…</div>';
+      state.palette.forEach((p) => {
+        const row = document.createElement("div");
+        row.className = "pal-row";
+        row.innerHTML = `
+          <div class="sw" style="background:${p.color}" title="${p.color}"></div>
+          <div class="hint">${(p.coverage * 100).toFixed(1)}%</div>
+          <input type="text" list="rhino-materials" placeholder="예) 송판 노출콘크리트, 로우E 유리" value="${esc(p.label)}">
+          <label class="check" title="체크한 영역만 AI가 수정합니다"><input type="checkbox" ${p.edit ? "checked" : ""}> 보정</label>`;
+        row.querySelector("input[type=text]").oninput = (e) => { p.label = e.target.value; };
+        row.querySelector("input[type=checkbox]").onchange = (e) => { p.edit = e.target.checked; };
+        box.append(row);
       });
     }
 
-    function addFiles(target, files) {
-      const imgs = [...files].filter((f) => /^image\/(png|jpeg|webp)$/.test(f.type));
-      if (target === "base") state.base = imgs.slice(0, 1);
-      else state.references = [...state.references, ...imgs].slice(0, MAX_REFS);
-      render(target);
+    // ── 스타일 레퍼런스 ───────────────────────────────
+    function renderReferences() {
+      const box = $("references-thumbs");
+      box.innerHTML = "";
+      state.references.forEach((r, i) => {
+        const div = document.createElement("div");
+        div.className = "thumb";
+        div.innerHTML = r.url ? `<img src="${r.url}" alt="">` : `<div class="hint" style="padding:6px">${esc(r.file.name)}</div>`;
+        const x = document.createElement("button");
+        x.type = "button"; x.className = "x"; x.textContent = "×";
+        x.onclick = () => { if (r.url) URL.revokeObjectURL(r.url); state.references.splice(i, 1); renderReferences(); };
+        div.append(x);
+        box.append(div);
+      });
+      updateCount();
     }
 
+    function updateCount() {
+      const ai = state.elements.filter((e) => e.ai).length;
+      const total = (state.base ? 1 : 0) + ai + state.references.length;
+      $("count-hint").textContent = `AI 입력 이미지 ${total}/${MAX_INPUT_IMAGES}장 (베이스 ${state.base ? 1 : 0} · Element ${ai} · 레퍼런스 ${state.references.length})`;
+      $("count-hint").style.color = total > MAX_INPUT_IMAGES ? "var(--danger)" : "";
+    }
+
+    // ── 드래그 앤 드롭 ────────────────────────────────
+    const handlers = {
+      base: (files) => files[0] && setBase(files[0]),
+      elements: addElements,
+      references: (files) => {
+        state.references.push(...files.map((file) => ({ file, url: previewUrl(file) })));
+        renderReferences();
+      },
+    };
     document.querySelectorAll(".drop").forEach((drop) => {
       const target = drop.dataset.target;
       const input = $(`file-${target}`);
+      const take = (list) => handlers[target]([...list].filter(isImage));
       drop.onclick = () => input.click();
-      input.onchange = () => { addFiles(target, input.files); input.value = ""; };
+      input.onchange = () => { take(input.files); input.value = ""; };
       drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
       drop.ondragleave = () => drop.classList.remove("over");
-      drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); addFiles(target, e.dataTransfer.files); };
+      drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); take(e.dataTransfer.files); };
     });
 
-    function showImages(container, urls) {
-      container.innerHTML = "";
-      if (!urls.length) { container.innerHTML = '<div class="empty">아직 결과가 없습니다</div>'; return; }
+    // ── 결과 ──────────────────────────────────────────
+    function showResults(urls) {
+      const box = $("results");
+      box.innerHTML = "";
       for (const url of urls) {
-        const div = document.createElement("div");
-        div.className = "result";
-        div.innerHTML = `<img src="${url}" alt="렌더링 결과" loading="lazy"><a href="${url}" download>다운로드</a>`;
-        container.append(div);
+        const card = document.createElement("div");
+        card.className = "result";
+        card.innerHTML = `
+          <div class="compare">
+            <img src="${url}" alt="실사 렌더링 결과">
+            ${state.baseUrl ? `<img class="before" src="${state.baseUrl}" alt="베이스 렌더" style="clip-path: inset(0 50% 0 0)"><span class="tag">베이스 | AI</span><input type="range" min="0" max="100" value="50" aria-label="비교 슬라이더">` : ""}
+          </div>
+          <a href="${url}" download>다운로드</a>`;
+        const range = card.querySelector("input[type=range]");
+        if (range) range.oninput = () => { card.querySelector(".before").style.clipPath = `inset(0 ${100 - range.value}% 0 0)`; };
+        box.append(card);
       }
     }
 
     async function loadHistory() {
-      const res = await fetch("/api/history");
-      const { images } = await res.json();
-      showImages($("history"), images);
+      const { images } = await api("/api/history");
+      const box = $("history");
+      box.innerHTML = images.length ? "" : '<div class="empty">아직 결과가 없습니다</div>';
+      for (const url of images) {
+        const div = document.createElement("div");
+        div.className = "result";
+        div.innerHTML = `<img src="${url}" alt="렌더링 결과" loading="lazy"><a href="${url}" download>다운로드</a>`;
+        box.append(div);
+      }
     }
 
-    $("form").onsubmit = async (e) => {
+    $("form").onsubmit = (e) => {
       e.preventDefault();
-      $("error").textContent = "";
-      if (!state.references.length) { $("error").textContent = "레퍼런스 이미지를 1장 이상 올려주세요."; return; }
-
+      if (!state.base) { $("error").textContent = "베이스 렌더 이미지를 올려주세요."; return; }
       const fd = new FormData();
-      if (state.base[0]) fd.append("base", state.base[0]);
-      state.references.forEach((f) => fd.append("references", f));
-      for (const key of ["prompt", "strength", "size", "quality", "n", "model"]) fd.append(key, $(key).value);
+      fd.append("base", state.base);
+      state.elements.forEach((el) => fd.append("elements", el.file));
+      fd.append("elementMeta", JSON.stringify(state.elements.map(({ type, ai }) => ({ type, ai }))));
+      state.references.forEach((r) => fd.append("references", r.file));
+      if (state.scene) fd.append("scene", JSON.stringify(state.scene));
+      if (state.idEl) {
+        fd.append("idSource", state.elements.indexOf(state.idEl));
+        fd.append("materialMap", JSON.stringify(state.palette.map(({ color, label, edit }) => ({ color, label, edit }))));
+      }
+      fd.append("options", JSON.stringify({
+        timeOfDay: $("timeOfDay").value,
+        weather: $("weather").value,
+        look: $("look").value,
+        fidelity: $("fidelity").value,
+        entourage: $("entourage").checked,
+        invertDepth: $("invert-depth").checked,
+        lockOutside: $("lock-outside").checked,
+      }));
+      for (const key of ["prompt", "quality", "n", "size", "model"]) fd.append(key, $(key).value);
 
-      const btn = $("run");
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span>렌더링 중… (최대 1~2분)';
-      try {
-        const res = await fetch("/api/render", { method: "POST", body: fd });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "요청 실패");
-        showImages($("results"), data.images);
+      busy($("run"), "렌더링 중… (1~3분)", async () => {
+        const data = await api("/api/render", { method: "POST", body: fd });
+        showResults(data.images);
         $("sent-prompt").textContent = data.prompt;
         $("prompt-details").hidden = false;
         loadHistory();
-      } catch (err) {
-        $("error").textContent = err.message;
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "렌더링";
-      }
+      });
     };
 
-    fetch("/api/config").then((r) => r.json()).then((cfg) => {
+    api("/api/config").then((cfg) => {
       if (![...$("model").options].some((o) => o.value === cfg.defaultModel)) {
         $("model").add(new Option(cfg.defaultModel, cfg.defaultModel), 0);
       }
       $("model").value = cfg.defaultModel;
+      if (!cfg.rhinoEnabled) { $("rhino-scene").disabled = true; $("rhino-capture").disabled = true; }
       if (!cfg.hasApiKey) $("error").textContent = "서버에 OPENAI_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.";
     });
+    updateCount();
     loadHistory();
   </script>
 </body>

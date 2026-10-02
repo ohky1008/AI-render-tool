@@ -5,6 +5,12 @@ import OpenAI, { toFile } from "openai";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ELEMENT_TYPES } from "./public/shared/element-types.js";
+import { buildPrompt } from "./src/prompt.js";
+import {
+  prepareBase, prepareElement, prepareReference, extractIdPalette, buildIdMatte, matteToEditMask, finalizeResult, apiSizeFor,
+} from "./src/elements.js";
+import { rhinoConfigured, getRhinoScene, captureRhinoViewport } from "./src/rhino.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_DIR = path.join(__dirname, "outputs");
@@ -13,14 +19,15 @@ const DEFAULT_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 
 // GPT 이미지 모델은 edit 요청당 최대 16장의 입력 이미지를 받는다.
 const MAX_INPUT_IMAGES = 16;
-const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const MAX_UPLOAD_FILES = 40;
+const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/tiff"]);
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024, files: MAX_INPUT_IMAGES },
+  limits: { fileSize: 200 * 1024 * 1024, files: MAX_UPLOAD_FILES },
   fileFilter: (_req, file, cb) => {
-    if (ALLOWED_TYPES.has(file.mimetype)) cb(null, true);
-    else cb(new Error(`지원하지 않는 형식입니다: ${file.originalname} (png, jpg, webp만 가능)`));
+    if (ALLOWED_TYPES.has(file.mimetype) || /\.tiff?$/i.test(file.originalname)) cb(null, true);
+    else cb(new Error(`지원하지 않는 형식입니다: ${file.originalname} (png, jpg, webp, tiff 가능 — EXR은 PNG/TIFF로 저장해 주세요)`));
   },
 });
 
@@ -33,39 +40,9 @@ function getClient() {
   return client;
 }
 
-/**
- * 사용자의 요청을 모델이 이해하기 쉬운 지시문으로 감싼다.
- * 베이스 이미지가 있으면 1번 이미지 = 구도/형태, 나머지 = 스타일 레퍼런스.
- */
-function buildPrompt({ userPrompt, hasBase, refCount, strength }) {
-  const refRange = hasBase
-    ? refCount === 1 ? "Image 2" : `Images 2-${refCount + 1}`
-    : refCount === 1 ? "Image 1" : `Images 1-${refCount}`;
-
-  const strengthText = {
-    low: "Borrow the references' style loosely; keep it subtle.",
-    medium: "Clearly follow the references' style while keeping the result natural.",
-    high: "Match the references' style as closely as possible.",
-  }[strength] ?? "";
-
-  const lines = [];
-  if (hasBase) {
-    lines.push(
-      "Image 1 is the BASE image (sketch, 3D model capture, photo, or draft).",
-      "Render Image 1 into a finished, high-quality image. Keep its composition, camera angle, geometry, proportions and layout exactly the same."
-    );
-  } else {
-    lines.push("Create a new, finished, high-quality image.");
-  }
-  if (refCount > 0) {
-    lines.push(
-      `${refRange} are STYLE REFERENCES. Analyze their rendering style, lighting, color palette, materials/textures, mood and level of detail, and apply that look to the result.`,
-      "Do not copy the references' subject matter or layout unless asked.",
-      strengthText
-    );
-  }
-  if (userPrompt) lines.push(`Additional instructions from the user: ${userPrompt}`);
-  return lines.filter(Boolean).join("\n");
+function parseJson(value, fallback) {
+  if (value == null || value === "") return fallback;
+  try { return JSON.parse(value); } catch { return fallback; }
 }
 
 const app = express();
@@ -73,68 +50,155 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/outputs", express.static(OUTPUT_DIR));
 
 app.get("/api/config", (_req, res) => {
-  res.json({ defaultModel: DEFAULT_MODEL, hasApiKey: Boolean(process.env.OPENAI_API_KEY) });
+  res.json({
+    defaultModel: DEFAULT_MODEL,
+    hasApiKey: Boolean(process.env.OPENAI_API_KEY),
+    rhinoEnabled: rhinoConfigured(),
+  });
 });
 
+// ── Rhino MCP ─────────────────────────────────────────────
+app.post("/api/rhino/scene", async (_req, res) => {
+  try {
+    res.json({ scene: await getRhinoScene() });
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.post("/api/rhino/capture", async (_req, res) => {
+  try {
+    const { buffer, mimeType } = await captureRhinoViewport();
+    res.type(mimeType).send(buffer);
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// ── Render Element 분석 ───────────────────────────────────
+app.post("/api/analyze-ids", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "ID 맵 이미지가 없습니다." });
+    res.json({ palette: await extractIdPalette(req.file.buffer) });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ error: `ID 맵을 읽지 못했습니다: ${err.message}` });
+  }
+});
+
+// ── 렌더링 ────────────────────────────────────────────────
 app.post(
   "/api/render",
   upload.fields([
     { name: "base", maxCount: 1 },
+    { name: "elements", maxCount: 24 },
     { name: "references", maxCount: MAX_INPUT_IMAGES },
   ]),
   async (req, res) => {
     try {
-      const base = req.files?.base?.[0];
+      const baseFile = req.files?.base?.[0];
+      const elementFiles = req.files?.elements ?? [];
       const refs = req.files?.references ?? [];
-      const {
-        prompt = "",
-        model = DEFAULT_MODEL,
-        size = "auto",
-        quality = "auto",
-        strength = "medium",
-        n = "1",
-      } = req.body;
+      const body = req.body;
+      if (!baseFile) return res.status(400).json({ error: "베이스 렌더 이미지를 올려주세요 (V-Ray RGB 또는 Rhino 뷰포트 캡처)." });
 
-      if (refs.length === 0) {
-        return res.status(400).json({ error: "레퍼런스 이미지를 1장 이상 올려주세요." });
-      }
-      if (refs.length + (base ? 1 : 0) > MAX_INPUT_IMAGES) {
-        return res.status(400).json({ error: `입력 이미지는 최대 ${MAX_INPUT_IMAGES}장까지 가능합니다.` });
+      const elementMeta = parseJson(body.elementMeta, []); // [{ type, ai }] (elementFiles와 같은 순서)
+      const materialMap = parseJson(body.materialMap, []); // [{ color, label, edit }]
+      const scene = parseJson(body.scene, null);
+      const options = parseJson(body.options, {});
+      const idSource = Number.isInteger(+body.idSource) && body.idSource !== "" ? +body.idSource : -1;
+      const model = body.model || DEFAULT_MODEL;
+      const quality = body.quality || "high";
+      const n = Math.min(Math.max(parseInt(body.n, 10) || 1, 1), 4);
+
+      const elements = elementFiles.map((f, i) => ({
+        file: f,
+        type: ELEMENT_TYPES[elementMeta[i]?.type] ? elementMeta[i].type : "other",
+        ai: Boolean(elementMeta[i]?.ai),
+      }));
+      const aiElements = elements.filter((e) => e.ai);
+      if (1 + aiElements.length + refs.length > MAX_INPUT_IMAGES) {
+        return res.status(400).json({
+          error: `AI에 전달하는 이미지는 최대 ${MAX_INPUT_IMAGES}장입니다 (베이스 1 + Element ${aiElements.length} + 레퍼런스 ${refs.length}).`,
+        });
       }
 
-      const inputs = [...(base ? [base] : []), ...refs];
-      const images = await Promise.all(
-        inputs.map((f) => toFile(f.buffer, f.originalname, { type: f.mimetype }))
-      );
+      // 1) 베이스 + Element 정렬
+      const base = await prepareBase(baseFile.buffer);
+      const dims = { width: base.width, height: base.height };
+      const invertDepth = options.invertDepth === true;
+      const aiPngs = await Promise.all(aiElements.map((e) => prepareElement(e.file.buffer, e.type, dims, { invertDepth })));
+      const refPngs = await Promise.all(refs.map((f) => prepareReference(f.buffer)));
+
+      // 2) Material ID 매핑 / 수정 영역 마스크
+      const idElement = elements[idSource];
+      let idMapImage = null;
+      if (idElement) {
+        const aiIndex = aiElements.indexOf(idElement);
+        idMapImage = aiIndex >= 0 ? `Image ${aiIndex + 2}` : null;
+      }
+      const editColors = idElement ? materialMap.filter((m) => m.edit).map((m) => m.color) : [];
+      let matte = null;
+      let mask = null;
+      if (editColors.length) {
+        matte = await buildIdMatte(idElement.file.buffer, editColors, dims);
+        mask = await matteToEditMask(matte, dims);
+      }
 
       const fullPrompt = buildPrompt({
-        userPrompt: prompt.trim(),
-        hasBase: Boolean(base),
+        aiElements,
         refCount: refs.length,
-        strength,
+        scene,
+        materialMap,
+        idMapImage,
+        hasMask: Boolean(mask),
+        options,
+        userPrompt: (body.prompt ?? "").trim(),
       });
 
+      // 3) 생성
+      const images = await Promise.all([
+        toFile(base.png, "base.png", { type: "image/png" }),
+        ...aiPngs.map((png, i) => toFile(png, `element-${i + 1}-${aiElements[i].type}.png`, { type: "image/png" })),
+        ...refPngs.map((png, i) => toFile(png, `reference-${i + 1}.png`, { type: "image/png" })),
+      ]);
       const params = {
         model,
         image: images,
         prompt: fullPrompt,
-        size,
+        size: body.size && body.size !== "match" ? body.size : apiSizeFor(dims),
         quality,
-        n: Math.min(Math.max(parseInt(n, 10) || 1, 1), 4),
+        n,
       };
+      if (mask) params.mask = await toFile(mask, "mask.png", { type: "image/png" });
       // gpt-image-2 계열은 input_fidelity를 무시하므로 나머지 모델에만 지정한다.
       if (!model.startsWith("gpt-image-2")) params.input_fidelity = "high";
 
       const result = await getClient().images.edit(params);
 
+      // 4) 원본 해상도 복원 + (마스크 사용 시) 선택 영역 밖 원본 유지
+      const lockOutside = mask && options.lockOutside !== false;
       await fs.mkdir(OUTPUT_DIR, { recursive: true });
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const saved = await Promise.all(
         result.data.map(async (img, i) => {
+          const png = await finalizeResult(
+            Buffer.from(img.b64_json, "base64"),
+            baseFile.buffer,
+            base.original,
+            lockOutside ? matte : null,
+            dims
+          );
           const name = `render-${stamp}-${i + 1}.png`;
-          await fs.writeFile(path.join(OUTPUT_DIR, name), Buffer.from(img.b64_json, "base64"));
+          await fs.writeFile(path.join(OUTPUT_DIR, name), png);
           return `/outputs/${name}`;
         })
+      );
+      await fs.writeFile(
+        path.join(OUTPUT_DIR, `render-${stamp}.json`),
+        JSON.stringify({ prompt: fullPrompt, model, quality, size: params.size, options, elements: elements.map((e) => ({ name: e.file.originalname, type: e.type, ai: e.ai })), materialMap, images: saved }, null, 2)
       );
 
       res.json({ images: saved, prompt: fullPrompt, usage: result.usage ?? null });
